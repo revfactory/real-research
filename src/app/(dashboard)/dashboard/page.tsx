@@ -77,8 +77,8 @@ export default function DashboardPage() {
       <div className="p-4 lg:p-8 space-y-8">
         {/* Page header */}
         <div className="flex items-center justify-between">
-          <h1 className="text-[28px] font-bold">대시보드</h1>
-          <Button onClick={() => router.push('/research/new')} className="gap-2">
+          <h1 className="text-3xl font-extrabold tracking-tight">대시보드</h1>
+          <Button onClick={() => router.push('/research/new')} className="gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:text-white hover:-translate-y-0.5 transition-all shadow-md hover:shadow-purple-500/30 rounded-xl px-4 py-3 text-sm font-bold">
             <Plus className="h-4 w-4" />
             새 리서치
           </Button>
@@ -96,15 +96,17 @@ export default function DashboardPage() {
             {statCards.map((stat, idx) => {
               const Icon = statIcons[idx];
               return (
-                <Card key={stat.label}>
+                <Card key={stat.label} className="glass-card hover:-translate-y-1 transition-transform duration-300">
                   <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <p className="text-[13px] font-medium text-muted-foreground">
+                    <div className="flex items-center justify-between mb-4">
+                      <p className="text-sm font-medium text-muted-foreground">
                         {stat.label}
                       </p>
-                      <Icon className="h-4 w-4 text-muted-foreground" />
+                      <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-500 dark:bg-blue-400/10 dark:text-blue-400 font-bold">
+                        <Icon className="h-4 w-4" />
+                      </div>
                     </div>
-                    <p className="text-2xl font-bold mt-2">{stat.value}</p>
+                    <p className="text-3xl font-extrabold tracking-tight">{stat.value}</p>
                   </CardContent>
                 </Card>
               );

@@ -59,37 +59,46 @@ export default function LandingPage() {
       </header>
 
       {/* Hero */}
-      <section className="max-w-[1200px] mx-auto px-4 pt-20 pb-16 text-center">
-        <h1 className="text-4xl font-extrabold tracking-tight mb-4">
+      <section className="max-w-[1200px] mx-auto px-4 pt-24 pb-20 text-center relative">
+        {/* Glow effect behind hero */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-gradient-hero blur-[100px] opacity-50 pointer-events-none rounded-full" />
+        
+        <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 text-gradient relative z-10">
           AI 리서치의 새로운 기준
         </h1>
-        <p className="text-lg text-muted-foreground mb-8 max-w-xl mx-auto">
+        <p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto relative z-10">
           OpenAI, Claude, Gemini가 함께 만드는 10단계 심층 리서치
         </p>
-        <Link href="/login">
-          <Button size="lg" className="h-12 px-8 text-base gap-2">
-            <GoogleIcon />
-            Google로 시작하기
-          </Button>
-        </Link>
+        <div className="relative z-10">
+          <Link href="/login">
+            <Button size="lg" className="h-14 px-8 text-lg font-medium gap-3 rounded-full bg-gradient-primary hover:shadow-lg hover:shadow-purple-500/30 transition-all hover:-translate-y-1">
+              <GoogleIcon />
+              Google로 시작하기
+            </Button>
+          </Link>
+        </div>
 
         {/* Pipeline visualization */}
-        <div className="flex items-center justify-center gap-2 mt-16 flex-wrap">
+        <div className="flex items-center justify-center gap-4 mt-20 flex-wrap relative z-10">
           {phases.map((phase, idx) => (
-            <div key={phase.label} className="flex items-center gap-2">
-              <div className="flex flex-col items-center gap-2">
+            <div key={phase.label} className="flex items-center gap-4">
+              <div className="flex flex-col items-center gap-3">
                 <div
-                  className="h-14 w-14 rounded-xl flex items-center justify-center"
-                  style={{ backgroundColor: `${phase.color}15` }}
+                  className="h-16 w-16 rounded-2xl flex items-center justify-center animate-float shadow-lg transition-all duration-300 hover:scale-110"
+                  style={{ 
+                    backgroundColor: `${phase.color}15`, 
+                    boxShadow: `0 10px 30px -10px ${phase.color}40`,
+                    animationDelay: `${idx * 0.2}s`
+                  }}
                 >
-                  <phase.icon className="h-6 w-6" style={{ color: phase.color }} />
+                  <phase.icon className="h-7 w-7" style={{ color: phase.color }} />
                 </div>
-                <span className="text-xs font-medium text-muted-foreground">
+                <span className="text-sm font-semibold text-muted-foreground">
                   {phase.label}
                 </span>
               </div>
               {idx < phases.length - 1 && (
-                <ArrowRight className="h-4 w-4 text-muted-foreground/40 mb-6" />
+                <ArrowRight className="h-5 w-5 text-muted-foreground/30 mb-8" />
               )}
             </div>
           ))}
@@ -97,18 +106,18 @@ export default function LandingPage() {
       </section>
 
       {/* Features */}
-      <section className="max-w-[1200px] mx-auto px-4 pb-20">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <section className="max-w-[1200px] mx-auto px-4 pb-24 relative z-10">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {features.map((feature) => (
             <Card
               key={feature.title}
-              className="group transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md"
+              className="group transition-all duration-300 hover:-translate-y-2 hover:shadow-xl glass-card border-white/5"
             >
-              <CardContent className="p-6 space-y-3">
-                <div className="h-12 w-12 rounded-lg bg-blue-600/10 flex items-center justify-center">
-                  <feature.icon className="h-6 w-6 text-blue-600" />
+              <CardContent className="p-8 space-y-4">
+                <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                  <feature.icon className="h-7 w-7 text-blue-500" />
                 </div>
-                <h3 className="text-base font-semibold">{feature.title}</h3>
+                <h3 className="text-xl font-bold">{feature.title}</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   {feature.description}
                 </p>

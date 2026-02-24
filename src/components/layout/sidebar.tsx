@@ -13,6 +13,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Trash2,
+  Sun,
+  Moon,
+  Monitor,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -22,11 +25,14 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { ThemeToggle } from './theme-toggle';
+import { useTheme } from 'next-themes';
 import { ConfirmDialog } from '@/components/shared/confirm-dialog';
 import { useUIStore } from '@/stores/ui-store';
 import { createClient } from '@/lib/supabase/client';
@@ -34,8 +40,8 @@ import { toast } from 'sonner';
 import type { Research, UserProfile } from '@/types';
 
 const navItems = [
-  { icon: LayoutDashboard, label: '대시보드', href: '/dashboard' },
   { icon: Plus, label: '새 리서치', href: '/research/new' },
+  { icon: LayoutDashboard, label: '대시보드', href: '/dashboard' },
   { icon: Search, label: '검색', href: '/search' },
 ];
 
@@ -43,6 +49,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { sidebarCollapsed, setSidebarCollapsed } = useUIStore();
+  const { setTheme } = useTheme();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [recentResearches, setRecentResearches] = useState<Research[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; topic: string } | null>(null);
@@ -153,7 +160,7 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        'hidden lg:flex flex-col border-r bg-sidebar transition-all duration-200 ease-in-out',
+        'hidden lg:flex flex-col border-r border-border/40 bg-sidebar/80 backdrop-blur-xl transition-all duration-300 ease-in-out shadow-sm',
         sidebarCollapsed ? 'w-16' : 'w-[280px]'
       )}
     >
@@ -168,7 +175,6 @@ export function Sidebar() {
           </Link>
         )}
         <div className="flex items-center gap-1">
-          {!sidebarCollapsed && <ThemeToggle />}
           <Button
             variant="ghost"
             size="icon"
@@ -192,15 +198,31 @@ export function Sidebar() {
               item.href === '/dashboard'
                 ? pathname === '/dashboard'
                 : pathname.startsWith(item.href);
+
+            // Special styling for "New Research"
+            if (item.href === '/research/new') {
+              return (
+                <div key={item.href} className="px-3 pb-4 pt-2">
+                  <Link
+                    href={item.href}
+                    className="flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:text-white hover:-translate-y-0.5 transition-all shadow-md hover:shadow-purple-500/30"
+                  >
+                    <item.icon className="h-4 w-4 shrink-0 text-white" />
+                    {!sidebarCollapsed && <span className="text-white">{item.label}</span>}
+                  </Link>
+                </div>
+              );
+            }
+
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                  'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200',
                   isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                    ? 'bg-gradient-to-r from-blue-600/10 to-purple-600/10 text-blue-600 dark:text-blue-400 font-bold shadow-sm'
+                    : 'text-muted-foreground font-medium hover:bg-accent/50 hover:text-accent-foreground'
                 )}
               >
                 <item.icon className="h-4 w-4 shrink-0" />
@@ -277,7 +299,28 @@ export function Sidebar() {
               )}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuContent align="end" side="top" className="w-48">
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <Sun className="mr-2 h-4 w-4 dark:hidden" />
+                <Moon className="mr-2 h-4 w-4 hidden dark:block" />
+                테마
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuItem onClick={() => setTheme('light')}>
+                  <Sun className="mr-2 h-4 w-4" />
+                  라이트
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme('dark')}>
+                  <Moon className="mr-2 h-4 w-4" />
+                  다크
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme('system')}>
+                  <Monitor className="mr-2 h-4 w-4" />
+                  시스템
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
             <DropdownMenuItem disabled>
               <Settings className="mr-2 h-4 w-4" />
               설정

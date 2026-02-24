@@ -125,6 +125,33 @@
   }
 }
 
+@layer utilities {
+  .glass {
+    @apply bg-background/60 backdrop-blur-xl border border-white/10 shadow-lg;
+  }
+  .glass-card {
+    @apply bg-card/60 backdrop-blur-xl border border-white/10 shadow-xl;
+  }
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500;
+  }
+  .bg-gradient-primary {
+    @apply bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 text-white;
+  }
+  .bg-gradient-hero {
+    @apply bg-gradient-to-br from-blue-600/20 via-purple-600/20 to-pink-600/20;
+  }
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
 /* Markdown content styles */
 .markdown-content {
   font-size: 0.875rem;

@@ -1,7 +1,8 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import type { PipelineContext, PhaseResult } from './types';
 import type { ResearchStatus } from '@/types';
-import { multiSearch } from '@/lib/ai/multi-search';
+import { multiSearchBatch, enrichSearchResults } from '@/lib/ai/multi-search';
+import { decomposeQuery } from '@/lib/ai/query-decomposer';
 import { generateEmbedding } from '@/lib/ai/embeddings';
 import { runPhase1 } from './phase1-deep-analysis';
 import { runPhase2 } from './phase2-red-team';
@@ -64,6 +65,7 @@ function getTaskName(taskId: string): string {
 
 export async function runPipeline(context: PipelineContext): Promise<void> {
   const { researchId, topic, description, emit } = context;
+  const isQuickMode = context.mode === 'quick';
 
   // Single log helper: updates current_step → triggers Realtime → client sees log
   const log = (message: string, extra?: { progress_percent?: number; status?: ResearchStatus; current_phase?: number }) =>
@@ -74,74 +76,139 @@ export async function runPipeline(context: PipelineContext): Promise<void> {
     await updateResearch(researchId, {
       status: 'collecting',
       started_at: new Date().toISOString(),
-      progress_percent: 5,
+      progress_percent: 2,
       current_step: '리서치 파이프라인 초기화',
     });
 
     emit({
       type: 'search_progress',
-      message: '3사 AI 웹 검색을 시작합니다...',
+      message: '리서치 파이프라인을 시작합니다...',
+      progress: 2,
+    });
+
+    // ── Step 1: Query Decomposition ──
+    await log('쿼리 분해 중 (Claude Haiku)...', { progress_percent: 3 });
+
+    const decomposition = await decomposeQuery(
+      topic,
+      description ?? undefined,
+      isQuickMode ? 'quick' : 'full',
+    );
+
+    await log(`쿼리 분해 완료: ${decomposition.subQueries.length}개 서브쿼리 생성`, { progress_percent: 5 });
+    for (const sq of decomposition.subQueries) {
+      await log(`  → ${sq}`);
+    }
+
+    emit({
+      type: 'search_progress',
+      message: `${decomposition.subQueries.length}개 서브쿼리로 분해 완료. 이중 언어 배치 검색을 시작합니다...`,
       progress: 5,
     });
 
-    // Phase 0: Multi-provider search
-    const searchQuery = description ? `${topic}. ${description}` : topic;
-    await log(`OpenAI, Anthropic, Gemini 3사 병렬 웹 검색 시작`);
+    // ── Step 2: Bilingual Batch Search ──
+    const totalQueries = decomposition.subQueries.length;
+    await log(`이중 언어 배치 검색 시작 (3사 × ${totalQueries}쿼리 × 한/영)`, { progress_percent: 6 });
 
-    // Heartbeat: update every 5 seconds during search
     const searchStart = Date.now();
-    const heartbeat = setInterval(() => {
-      const secs = Math.round((Date.now() - searchStart) / 1000);
-      updateResearch(researchId, {
-        current_step: `웹 검색 진행 중... (${secs}초 경과)`,
-      }).catch(() => {});
-    }, 5000);
-
     let searchResult;
     try {
-      searchResult = await multiSearch({
-        query: searchQuery,
-        mode: 'search',
-        language: 'both',
-      });
-    } finally {
-      clearInterval(heartbeat);
+      searchResult = await multiSearchBatch(
+        decomposition.subQueries,
+        {
+          mode: 'search',
+          language: 'both',
+          concurrency: 2,
+          onProgress: (progress) => {
+            const secs = Math.round((Date.now() - searchStart) / 1000);
+            const done = progress.queryIndex + 1;
+            const pct = Math.round(6 + (done / progress.totalQueries) * 7); // 6% → 13%
+            const providerInfo = progress.succeededProviders.length > 0
+              ? `성공: ${progress.succeededProviders.join(', ')}`
+              : '검색 중';
+            const failInfo = progress.failedProviders.length > 0
+              ? ` | 실패: ${progress.failedProviders.join(', ')}`
+              : '';
+
+            updateResearch(researchId, {
+              current_step: `[${done}/${progress.totalQueries}] "${progress.query.slice(0, 40)}${progress.query.length > 40 ? '...' : ''}" → ${progress.sourcesFound}개 소스 (${providerInfo}${failInfo}) — ${secs}초`,
+              progress_percent: pct,
+            }).catch(() => {});
+          },
+        },
+      );
+    } catch (error) {
+      throw error;
     }
 
     const searchSecs = Math.round((Date.now() - searchStart) / 1000);
-    await log(`웹 검색 완료 (${searchSecs}초)`);
 
-    // Log each provider result sequentially (ensures Realtime delivers each)
+    // ── Step 3: Error Recovery Check ──
+    if (searchResult.successCount === 0) {
+      throw new Error(
+        `모든 프로바이더 검색 실패: ${searchResult.failedProviders.join(', ')}. ` +
+        'API 키와 네트워크 상태를 확인하세요.'
+      );
+    }
+
+    if (searchResult.successCount === 1) {
+      const workingProvider = searchResult.results.find(r => !r.error)?.provider;
+      await log(`⚠️ 1개 프로바이더만 성공 (${workingProvider}). 교차검증이 제한됩니다.`);
+    }
+
+    // ── Step 4: Source Scoring & Filtering ──
+    searchResult = enrichSearchResults(searchResult);
+
+    await log(`웹 검색 완료 (${searchSecs}초)`, { progress_percent: 13 });
+
+    // Log provider results
+    const providerSummary = new Map<string, { sources: number; chars: number }>();
+    for (const r of searchResult.results) {
+      if (r.error) continue;
+      const existing = providerSummary.get(r.provider) || { sources: 0, chars: 0 };
+      existing.sources += r.sources.length;
+      existing.chars += r.text.length;
+      providerSummary.set(r.provider, existing);
+    }
+
+    for (const [provider, stats] of providerSummary) {
+      await log(`${provider.charAt(0).toUpperCase() + provider.slice(1)}: ${stats.sources}개 소스, ${stats.chars.toLocaleString()}자 수집`);
+    }
+
+    // Log failed providers
     for (const r of searchResult.results) {
       if (r.error) {
         await log(`${r.provider.charAt(0).toUpperCase() + r.provider.slice(1)} 검색 실패: ${r.error}`);
-      } else {
-        await log(`${r.provider.charAt(0).toUpperCase() + r.provider.slice(1)}: ${r.sources.length}개 소스, ${r.text.length.toLocaleString()}자 수집`);
       }
+    }
+
+    // Log usage
+    const { totalUsage } = searchResult;
+    if (totalUsage.inputTokens > 0 || totalUsage.outputTokens > 0) {
+      await log(`토큰 사용량: 입력 ${totalUsage.inputTokens.toLocaleString()}, 출력 ${totalUsage.outputTokens.toLocaleString()}`);
     }
 
     // Save sources to DB
     const supabase = createServiceClient();
     await log(`소스 DB 저장 중 (${searchResult.allSources.length}개)...`);
+    const crossValidatedSet = new Set(searchResult.crossValidatedUrls);
+
     let savedSourceCount = 0;
-    for (const providerResult of searchResult.results) {
-      if (providerResult.error) continue;
-      for (const source of providerResult.sources) {
-        const isCrossValidated = searchResult.crossValidatedUrls.includes(source.url);
-        await supabase.from('research_source').insert({
-          research_id: researchId,
-          provider: providerResult.provider,
-          title: source.title,
-          url: source.url,
-          snippet: source.snippet || null,
-          source_type: source.sourceType || 'other',
-          reliability_score: source.confidenceScore ? Math.round(source.confidenceScore * 5) : null,
-          cross_validated: isCrossValidated,
-          page_age: source.pageAge || null,
-          raw_data: null,
-        });
-        savedSourceCount++;
-      }
+    for (const source of searchResult.allSources) {
+      const isCrossValidated = crossValidatedSet.has(source.url);
+      await supabase.from('research_source').insert({
+        research_id: researchId,
+        provider: 'openai', // Provider is aggregated; store first match
+        title: source.title,
+        url: source.url,
+        snippet: source.snippet || null,
+        source_type: source.sourceType || 'other',
+        reliability_score: source.reliabilityScore != null ? Math.round(source.reliabilityScore * 5) : null,
+        cross_validated: isCrossValidated,
+        page_age: source.pageAge || null,
+        raw_data: null,
+      });
+      savedSourceCount++;
     }
 
     const crossCount = searchResult.crossValidatedUrls.length;
@@ -149,7 +216,7 @@ export async function runPipeline(context: PipelineContext): Promise<void> {
 
     emit({
       type: 'search_progress',
-      message: `웹 검색 완료: ${searchResult.allSources.length}개 소스 수집`,
+      message: `웹 검색 완료: ${searchResult.allSources.length}개 소스 수집 (교차검증 ${crossCount}개)`,
       progress: 15,
     });
 
@@ -163,7 +230,7 @@ export async function runPipeline(context: PipelineContext): Promise<void> {
     await log('Phase 1: 심층 분석 시작 (인사이트 도출, 논리 검증, 교차 검증)', { status: 'phase1', current_phase: 1, progress_percent: 20 });
     emit({ type: 'phase_start', phase: 1, message: 'Phase 1: 심층 분석을 시작합니다', progress: 20 });
 
-    const phase1EndProgress = context.mode === 'quick' ? 55 : 35;
+    const phase1EndProgress = isQuickMode ? 55 : 35;
     const phase1Result = await executePhase(
       context, 1, sourceSummary,
       (taskId) => runPhase1(topic, sourceSummary, taskId, emit),
@@ -172,7 +239,6 @@ export async function runPipeline(context: PipelineContext): Promise<void> {
     );
 
     const phase1Content = phase1Result.tasks.map(t => t.content).join('\n\n');
-    const isQuickMode = context.mode === 'quick';
 
     let allPhaseResults: PhaseResult[];
 

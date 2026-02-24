@@ -1,38 +1,50 @@
 import OpenAI from 'openai';
-import type { SearchOptions, ProviderSearchResult, Citation, SourceInfo } from './types';
+import type { SearchOptions, ProviderSearchResult, Citation, SourceInfo, TokenUsage } from './types';
+import { withRetry } from './retry';
+import { getPrompts, getDefaultMaxResults } from './prompts';
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 60_000 });
+
+/**
+ * Map maxResults to OpenAI search_context_size
+ */
+function getSearchContextSize(maxResults?: number): 'low' | 'medium' | 'high' {
+  const n = maxResults ?? 5;
+  if (n <= 3) return 'low';
+  if (n <= 5) return 'medium';
+  return 'high';
+}
 
 export async function searchWithOpenAI(options: SearchOptions): Promise<ProviderSearchResult> {
-  const { query, mode = 'search', domains, language = 'both' } = options;
+  const { query, mode = 'search', domains, language = 'both', maxResults } = options;
 
   try {
-    const systemPrompt = mode === 'verify'
-      ? '당신은 팩트체커입니다. 주어진 주장을 검증하고 근거를 제시하세요. 한국어로 답변하세요.'
-      : '당신은 리서치 어시스턴트입니다. 주어진 주제에 대해 웹을 검색하여 핵심 정보를 수집하고 정리하세요. 한국어로 답변하세요.';
+    const prompts = getPrompts(mode);
+    const systemPrompt = prompts.system;
+    const userPrompt = prompts.user(query, language);
 
-    const userPrompt = mode === 'verify'
-      ? `다음 주장을 검증하세요: "${query}"`
-      : language === 'ko'
-        ? `다음 주제에 대해 한국어 자료를 중심으로 검색하세요: ${query}`
-        : `다음 주제에 대해 검색하세요: ${query}`;
-
-    const webSearchTool: Record<string, unknown> = { type: 'web_search' };
+    const webSearchTool: Record<string, unknown> = {
+      type: 'web_search',
+      search_context_size: getSearchContextSize(maxResults ?? getDefaultMaxResults(mode)),
+    };
     if (domains && domains.length > 0) {
       webSearchTool.search_context_filter = {
         allowed_domains: domains,
       };
     }
 
-    const response = await client.responses.create({
-      model: 'gpt-4.1',
-      tools: [webSearchTool as unknown as OpenAI.Responses.WebSearchTool],
-      include: ['web_search_call.action.sources'] as unknown as OpenAI.Responses.ResponseIncludable[],
-      input: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-    });
+    const response = await withRetry(
+      () => client.responses.create({
+        model: 'gpt-4.1',
+        tools: [webSearchTool as unknown as OpenAI.Responses.WebSearchTool],
+        include: ['web_search_call.action.sources'] as unknown as OpenAI.Responses.ResponseIncludable[],
+        input: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+      }),
+      { maxRetries: 2 },
+    );
 
     const citations: Citation[] = [];
     const sources: SourceInfo[] = [];
@@ -85,11 +97,22 @@ export async function searchWithOpenAI(options: SearchOptions): Promise<Provider
       }
     }
 
+    // Extract usage
+    let usage: TokenUsage | undefined;
+    const rawUsage = (response as unknown as { usage?: { input_tokens?: number; output_tokens?: number } }).usage;
+    if (rawUsage) {
+      usage = {
+        inputTokens: rawUsage.input_tokens ?? 0,
+        outputTokens: rawUsage.output_tokens ?? 0,
+      };
+    }
+
     return {
       provider: 'openai',
       text,
       citations,
       sources,
+      usage,
       rawResponse: response,
     };
   } catch (error) {

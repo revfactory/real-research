@@ -1,48 +1,53 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { SearchOptions, ProviderSearchResult, Citation, SourceInfo } from './types';
+import type { SearchOptions, ProviderSearchResult, Citation, SourceInfo, TokenUsage } from './types';
+import { withRetry } from './retry';
+import { getPrompts, getDefaultMaxResults } from './prompts';
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 60_000 });
 
 export async function searchWithAnthropic(options: SearchOptions): Promise<ProviderSearchResult> {
-  const { query, mode = 'search', language = 'both' } = options;
+  const { query, mode = 'search', domains, language = 'both', maxResults } = options;
 
   try {
-    const systemPrompt = mode === 'verify'
-      ? '당신은 팩트체커입니다. 주어진 주장을 검증하고 근거를 제시하세요. 한국어로 답변하세요.'
-      : '당신은 리서치 어시스턴트입니다. 주어진 주제에 대해 웹을 검색하여 핵심 정보를 수집하고 정리하세요. 한국어로 답변하세요.';
+    const prompts = getPrompts(mode);
+    const systemPrompt = prompts.system;
+    const userPrompt = prompts.user(query, language);
 
-    const userPrompt = mode === 'verify'
-      ? `다음 주장을 검증하세요: "${query}"`
-      : language === 'ko'
-        ? `다음 주제에 대해 한국어 자료를 중심으로 검색하세요: ${query}`
-        : `다음 주제에 대해 검색하세요: ${query}`;
+    const effectiveMaxResults = maxResults ?? getDefaultMaxResults(mode);
 
-    const tools: Anthropic.Messages.Tool[] = [
-      {
-        type: 'web_search_20260209' as unknown as 'web_search_20260209',
-        name: 'web_search',
-        max_uses: 5,
-      } as unknown as Anthropic.Messages.Tool,
-    ];
+    // Build web_search tool (web_search_20250305: stable, supports max_uses + domain filtering)
+    const webSearchTool: Record<string, unknown> = {
+      type: 'web_search_20250305',
+      name: 'web_search',
+      max_uses: effectiveMaxResults,
+    };
+    if (domains && domains.length > 0) {
+      webSearchTool.allowed_domains = domains;
+    }
+
+    const tools: unknown[] = [webSearchTool];
 
     // Add web_fetch tool for deeper analysis
     if (mode === 'deep') {
       tools.push({
-        type: 'web_fetch_20260209' as unknown as 'web_fetch_20260209',
+        type: 'web_fetch_20250910',
         name: 'web_fetch',
-        citations: { enabled: true },
-      } as unknown as Anthropic.Messages.Tool);
+        max_uses: 3,
+      });
     }
 
-    const response = await (client.messages.create as Function)({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 4096,
-      system: systemPrompt,
-      tools,
-      messages: [
-        { role: 'user', content: userPrompt },
-      ],
-    });
+    const response = await withRetry(
+      () => client.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4096,
+        system: systemPrompt,
+        tools: tools as Anthropic.Messages.Tool[],
+        messages: [
+          { role: 'user', content: userPrompt },
+        ],
+      } as Anthropic.Messages.MessageCreateParamsNonStreaming),
+      { maxRetries: 2 },
+    );
 
     const msg = response as Anthropic.Message;
     const citations: Citation[] = [];
@@ -109,11 +114,22 @@ export async function searchWithAnthropic(options: SearchOptions): Promise<Provi
       }
     }
 
+    // Extract usage
+    let usage: TokenUsage | undefined;
+    const rawUsage = msg.usage;
+    if (rawUsage) {
+      usage = {
+        inputTokens: rawUsage.input_tokens ?? 0,
+        outputTokens: rawUsage.output_tokens ?? 0,
+      };
+    }
+
     return {
       provider: 'anthropic',
       text,
       citations,
       sources,
+      usage,
       rawResponse: response,
     };
   } catch (error) {

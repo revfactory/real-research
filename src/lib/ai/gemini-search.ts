@@ -1,5 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
-import type { SearchOptions, ProviderSearchResult, Citation, SourceInfo } from './types';
+import type { SearchOptions, ProviderSearchResult, Citation, SourceInfo, TokenUsage } from './types';
+import { withRetry } from './retry';
+import { getPrompts } from './prompts';
 
 const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
@@ -7,28 +9,25 @@ export async function searchWithGemini(options: SearchOptions): Promise<Provider
   const { query, mode = 'search', language = 'both' } = options;
 
   try {
-    const systemPrompt = mode === 'verify'
-      ? '당신은 팩트체커입니다. 주어진 주장을 검증하고 근거를 제시하세요. 한국어로 답변하세요.'
-      : '당신은 리서치 어시스턴트입니다. 주어진 주제에 대해 웹을 검색하여 핵심 정보를 수집하고 정리하세요. 한국어로 답변하세요.';
+    const prompts = getPrompts(mode);
+    const systemPrompt = prompts.system;
+    const userPrompt = prompts.user(query, language);
 
-    const userPrompt = mode === 'verify'
-      ? `다음 주장을 검증하세요: "${query}"`
-      : language === 'ko'
-        ? `다음 주제에 대해 한국어 자료를 중심으로 검색하세요: ${query}`
-        : `다음 주제에 대해 검색하세요: ${query}`;
-
-    const response = await genai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: [
-        {
-          role: 'user',
-          parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }],
+    const response = await withRetry(
+      () => genai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }],
+          },
+        ],
+        config: {
+          tools: [{ googleSearch: {} }],
         },
-      ],
-      config: {
-        tools: [{ googleSearch: {} }],
-      },
-    });
+      }),
+      { maxRetries: 2 },
+    );
 
     const citations: Citation[] = [];
     const sources: SourceInfo[] = [];
@@ -100,11 +99,24 @@ export async function searchWithGemini(options: SearchOptions): Promise<Provider
       }
     }
 
+    // Extract usage
+    let usage: TokenUsage | undefined;
+    const rawUsage = (response as unknown as {
+      usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
+    }).usageMetadata;
+    if (rawUsage) {
+      usage = {
+        inputTokens: rawUsage.promptTokenCount ?? 0,
+        outputTokens: rawUsage.candidatesTokenCount ?? 0,
+      };
+    }
+
     return {
       provider: 'gemini',
       text,
       citations,
       sources,
+      usage,
       rawResponse: response,
     };
   } catch (error) {

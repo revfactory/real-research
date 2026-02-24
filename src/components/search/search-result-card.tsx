@@ -19,7 +19,7 @@ export function SearchResultCard({
   similarity,
   createdAt,
 }: SearchResultCardProps) {
-  const pct = Math.round(similarity * 100);
+  const pct = Math.round(similarity);
 
   return (
     <Link href={`/research/${researchId}`}>

@@ -8,11 +8,17 @@ export interface SearchOptions {
   language?: 'ko' | 'en' | 'both';
 }
 
+export interface TokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+}
+
 export interface ProviderSearchResult {
   provider: Provider;
   text: string;
   citations: Citation[];
   sources: SourceInfo[];
+  usage?: TokenUsage;
   rawResponse?: unknown;
   error?: string;
 }
@@ -32,6 +38,8 @@ export interface SourceInfo {
   pageAge?: string;
   sourceType?: SourceType;
   confidenceScore?: number;
+  reliabilityScore?: number;
+  discoveryLanguage?: 'ko' | 'en';
 }
 
 export interface MultiSearchOptions extends SearchOptions {
@@ -43,6 +51,15 @@ export interface MultiSearchResponse {
   allSources: SourceInfo[];
   crossValidatedUrls: string[];
   summary: string;
+  successCount: number;
+  failedProviders: Provider[];
+  totalUsage: TokenUsage;
+}
+
+export interface QueryDecomposition {
+  original: string;
+  subQueries: string[];
+  mode: 'quick' | 'full';
 }
 
 export interface EmbeddingResult {
