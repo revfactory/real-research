@@ -1,10 +1,13 @@
 import type { SSEEvent } from '@/types';
 
+export type PipelineMode = 'full' | 'quick';
+
 export interface PipelineContext {
   researchId: string;
   topic: string;
   description?: string;
   userId: string;
+  mode: PipelineMode;
   emit: (event: SSEEvent) => void;
 }
 

@@ -236,3 +236,28 @@
 .markdown-content a:hover {
   text-decoration: underline;
 }
+
+/* Dark mode markdown styles */
+.dark .markdown-content thead {
+  background: oklch(0.269 0 0);
+}
+.dark .markdown-content th,
+.dark .markdown-content td {
+  border-color: oklch(1 0 0 / 10%);
+}
+.dark .markdown-content code {
+  background: oklch(0.269 0 0);
+}
+.dark .markdown-content pre {
+  background: oklch(0.205 0 0);
+}
+.dark .markdown-content blockquote {
+  border-left-color: oklch(0.488 0.243 264.376);
+  background: oklch(0.269 0 0 / 50%);
+}
+.dark .markdown-content a {
+  color: oklch(0.696 0.17 262.881);
+}
+.dark .markdown-content hr {
+  border-top-color: oklch(1 0 0 / 10%);
+}

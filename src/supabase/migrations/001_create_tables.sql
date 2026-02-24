@@ -144,6 +144,9 @@ BEGIN
 END;
 $$;
 
+-- Share token for public sharing
+ALTER TABLE research_report ADD COLUMN IF NOT EXISTS share_token UUID UNIQUE;
+
 -- Enable Realtime for progress tracking
 ALTER PUBLICATION supabase_realtime ADD TABLE research;
 ALTER PUBLICATION supabase_realtime ADD TABLE research_phase_result;

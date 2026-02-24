@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { ExternalLink, CheckCircle2, AlertTriangle, Star } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { ExternalLink, CheckCircle2, AlertTriangle, Star, ShieldCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ProviderBadge } from './provider-badge';
@@ -21,6 +21,14 @@ export function SourceList({ sources }: SourceListProps) {
   const [reliabilityFilter, setReliabilityFilter] = useState<ReliabilityFilter>('all');
   const [validationFilter, setValidationFilter] = useState<ValidationFilter>('all');
 
+  const providerStats = useMemo(() => {
+    const openai = sources.filter(s => s.provider === 'openai').length;
+    const anthropic = sources.filter(s => s.provider === 'anthropic').length;
+    const gemini = sources.filter(s => s.provider === 'gemini').length;
+    const crossValidated = sources.filter(s => s.cross_validated).length;
+    return { openai, anthropic, gemini, crossValidated, total: sources.length };
+  }, [sources]);
+
   const filtered = sources.filter((s) => {
     if (providerFilter !== 'all' && s.provider !== providerFilter) return false;
     if (reliabilityFilter !== 'all') {
@@ -36,6 +44,26 @@ export function SourceList({ sources }: SourceListProps) {
 
   return (
     <div className="space-y-4">
+      {/* Provider Statistics */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="secondary" className="text-xs gap-1" style={{ color: '#10A37F', borderColor: '#10A37F' }}>
+          OpenAI: {providerStats.openai}개
+        </Badge>
+        <Badge variant="secondary" className="text-xs gap-1" style={{ color: '#D97706', borderColor: '#D97706' }}>
+          Anthropic: {providerStats.anthropic}개
+        </Badge>
+        <Badge variant="secondary" className="text-xs gap-1" style={{ color: '#4285F4', borderColor: '#4285F4' }}>
+          Gemini: {providerStats.gemini}개
+        </Badge>
+        <Badge variant="outline" className="text-xs gap-1 text-green-600 border-green-600">
+          <ShieldCheck className="h-3 w-3" />
+          교차검증: {providerStats.crossValidated}개
+        </Badge>
+        <span className="text-xs text-muted-foreground ml-auto">
+          총 {providerStats.total}개 소스
+        </span>
+      </div>
+
       {/* Filters */}
       <div className="flex flex-wrap gap-4">
         <div className="space-y-1">

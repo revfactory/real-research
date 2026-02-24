@@ -12,6 +12,7 @@ import {
   Download,
   Trash2,
   Loader2,
+  Share2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -38,7 +39,23 @@ export default function ResearchDetailPage() {
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
+  const handleShare = async () => {
+    setSharing(true);
+    try {
+      const res = await fetch(`/api/research/${researchId}/share`, { method: 'POST' });
+      if (!res.ok) throw new Error('공유 링크 생성에 실패했습니다.');
+      const data = await res.json();
+      const shareUrl = `${window.location.origin}/share/${data.share_token}`;
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success('링크가 복사되었습니다');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '공유 링크 생성에 실패했습니다.');
+    } finally {
+      setSharing(false);
+    }
+  };
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -142,6 +159,20 @@ export default function ResearchDetailPage() {
             </div>
           </div>
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={handleShare}
+              disabled={sharing}
+            >
+              {sharing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Share2 className="h-4 w-4" />
+              )}
+              공유
+            </Button>
             <Button
               variant="outline"
               size="sm"

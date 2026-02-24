@@ -96,6 +96,7 @@ export interface ResearchReport {
   executive_summary: string | null;
   full_report: string | null;
   pdf_storage_path: string | null;
+  share_token: string | null;
   created_at: string;
   updated_at: string;
 }

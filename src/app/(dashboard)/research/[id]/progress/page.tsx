@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowRight, RefreshCw } from 'lucide-react';
+import { ArrowRight, RefreshCw, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -10,9 +10,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Header } from '@/components/layout/header';
 import { PipelineProgress } from '@/components/research/pipeline-progress';
+import { ConfirmDialog } from '@/components/shared/confirm-dialog';
 import { useResearchDetail } from '@/hooks/use-research-detail';
 import { useResearchRealtime } from '@/hooks/use-research-realtime';
 import { STATUS_CONFIG } from '@/lib/constants';
+import { toast } from 'sonner';
 import type { Research, ResearchStatus, ResearchPhaseResult } from '@/types';
 
 export default function ResearchProgressPage() {
@@ -30,6 +32,8 @@ export default function ResearchProgressPage() {
   const [isFailed, setIsFailed] = useState(false);
   const logEndRef = useRef<HTMLDivElement>(null);
   const [showLog, setShowLog] = useState(true);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const prevStepRef = useRef<string | null>(null);
 
   // Sync initial data
@@ -49,6 +53,23 @@ export default function ResearchProgressPage() {
     });
     setLogs((prev) => [...prev, { time: now, message }]);
   }, []);
+
+  const handleCancel = useCallback(async () => {
+    setCancelling(true);
+    try {
+      const res = await fetch(`/api/research/${researchId}`, { method: 'PUT' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || '취소에 실패했습니다.');
+      }
+      toast.success('리서치가 취소되었습니다.');
+      setShowCancelDialog(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '취소에 실패했습니다.');
+    } finally {
+      setCancelling(false);
+    }
+  }, [researchId]);
 
   // Realtime: research table updates
   const handleResearchUpdate = useCallback((updated: Partial<Research>) => {
@@ -174,7 +195,31 @@ export default function ResearchProgressPage() {
               {research.current_step}
             </p>
           )}
+          {isActive && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-destructive hover:text-destructive"
+              onClick={() => setShowCancelDialog(true)}
+            >
+              <XCircle className="h-4 w-4" />
+              취소
+            </Button>
+          )}
         </div>
+
+        {/* Cancel confirmation dialog */}
+        <ConfirmDialog
+          open={showCancelDialog}
+          onOpenChange={setShowCancelDialog}
+          title="리서치를 취소하시겠습니까?"
+          description="진행 중인 리서치를 취소하면 현재까지의 분석 결과가 저장되지 않을 수 있습니다."
+          confirmLabel="취소하기"
+          cancelLabel="계속 진행"
+          variant="destructive"
+          onConfirm={handleCancel}
+          loading={cancelling}
+        />
 
         {/* Pipeline */}
         <PipelineProgress

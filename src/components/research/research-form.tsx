@@ -44,6 +44,12 @@ export function ResearchForm() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+        if (res.status === 429) {
+          const limit = data.limit || 3;
+          throw new Error(
+            `동시 진행 가능한 리서치는 ${limit}개입니다. 기존 리서치가 완료된 후 다시 시도해주세요.`
+          );
+        }
         throw new Error(data.error || '리서치 생성에 실패했습니다.');
       }
 
@@ -123,7 +129,7 @@ export function ResearchForm() {
           >
             <p className="font-medium text-sm">전체 파이프라인</p>
             <p className="text-xs text-muted-foreground mt-1">
-              4 Phase 전체 실행
+              4 Phase 전체 실행 (심층분석 + 비판적사고 + 지식통합 + 실전적용)
             </p>
           </button>
           <button
@@ -136,7 +142,9 @@ export function ResearchForm() {
             }`}
           >
             <p className="font-medium text-sm">빠른 리서치</p>
-            <p className="text-xs text-muted-foreground mt-1">축약 버전</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Phase 1 심층분석 후 바로 보고서 생성
+            </p>
           </button>
         </div>
       </div>

@@ -126,77 +126,90 @@ export async function runPipeline(context: PipelineContext): Promise<void> {
 
     emit({ type: 'phase_start', phase: 1, message: 'Phase 1: 심층 분석을 시작합니다', progress: 20 });
 
+    const phase1EndProgress = context.mode === 'quick' ? 55 : 35;
     const phase1Result = await executePhase(
       context, 1, sourceSummary,
       (taskId) => runPhase1(topic, sourceSummary, taskId, emit),
       ['1.1', '1.2', '1.3'],
-      20, 35,
+      20, phase1EndProgress,
     );
-
-    // Phase 2: Red Team
-    await updateResearch(researchId, {
-      status: 'phase2',
-      current_phase: 2,
-      current_step: 'Phase 2: 비판적 사고 시작',
-      progress_percent: 40,
-    });
-
-    emit({ type: 'phase_start', phase: 2, message: 'Phase 2: 비판적 사고를 시작합니다', progress: 40 });
 
     const phase1Content = phase1Result.tasks.map(t => t.content).join('\n\n');
-    const phase2Result = await executePhase(
-      context, 2, `${sourceSummary}\n\n[Phase 1 결과]\n${phase1Content}`,
-      (taskId) => runPhase2(topic, sourceSummary, phase1Content, taskId, emit),
-      ['2.1', '2.2', '2.3'],
-      40, 55,
-    );
+    const isQuickMode = context.mode === 'quick';
 
-    // Phase 3: Knowledge Integration
-    await updateResearch(researchId, {
-      status: 'phase3',
-      current_phase: 3,
-      current_step: 'Phase 3: 지식 통합 시작',
-      progress_percent: 60,
-    });
+    let allPhaseResults: PhaseResult[];
 
-    emit({ type: 'phase_start', phase: 3, message: 'Phase 3: 지식 통합을 시작합니다', progress: 60 });
+    if (isQuickMode) {
+      // Quick mode: skip Phases 2-4, go straight to fact check & report
+      allPhaseResults = [phase1Result];
+    } else {
+      // Full mode: run Phases 2-4
+      // Phase 2: Red Team
+      await updateResearch(researchId, {
+        status: 'phase2',
+        current_phase: 2,
+        current_step: 'Phase 2: 비판적 사고 시작',
+        progress_percent: 40,
+      });
 
-    const phase2Content = phase2Result.tasks.map(t => t.content).join('\n\n');
-    const phase3Result = await executePhase(
-      context, 3, `${sourceSummary}\n\n[Phase 1 결과]\n${phase1Content}\n\n[Phase 2 결과]\n${phase2Content}`,
-      (taskId) => runPhase3(topic, sourceSummary, phase1Content, phase2Content, taskId, emit),
-      ['3.1', '3.2'],
-      60, 70,
-    );
+      emit({ type: 'phase_start', phase: 2, message: 'Phase 2: 비판적 사고를 시작합니다', progress: 40 });
 
-    // Phase 4: Strategy
-    await updateResearch(researchId, {
-      status: 'phase4',
-      current_phase: 4,
-      current_step: 'Phase 4: 실전 적용 시작',
-      progress_percent: 75,
-    });
+      const phase2Result = await executePhase(
+        context, 2, `${sourceSummary}\n\n[Phase 1 결과]\n${phase1Content}`,
+        (taskId) => runPhase2(topic, sourceSummary, phase1Content, taskId, emit),
+        ['2.1', '2.2', '2.3'],
+        40, 55,
+      );
 
-    emit({ type: 'phase_start', phase: 4, message: 'Phase 4: 실전 적용을 시작합니다', progress: 75 });
+      // Phase 3: Knowledge Integration
+      await updateResearch(researchId, {
+        status: 'phase3',
+        current_phase: 3,
+        current_step: 'Phase 3: 지식 통합 시작',
+        progress_percent: 60,
+      });
 
-    const phase3Content = phase3Result.tasks.map(t => t.content).join('\n\n');
-    const phase4Result = await executePhase(
-      context, 4, `${sourceSummary}\n\n모든 이전 분석 결과`,
-      (taskId) => runPhase4(topic, phase1Content, phase2Content, phase3Content, taskId, emit),
-      ['4.1', '4.2'],
-      75, 85,
-    );
+      emit({ type: 'phase_start', phase: 3, message: 'Phase 3: 지식 통합을 시작합니다', progress: 60 });
+
+      const phase2Content = phase2Result.tasks.map(t => t.content).join('\n\n');
+      const phase3Result = await executePhase(
+        context, 3, `${sourceSummary}\n\n[Phase 1 결과]\n${phase1Content}\n\n[Phase 2 결과]\n${phase2Content}`,
+        (taskId) => runPhase3(topic, sourceSummary, phase1Content, phase2Content, taskId, emit),
+        ['3.1', '3.2'],
+        60, 70,
+      );
+
+      // Phase 4: Strategy
+      await updateResearch(researchId, {
+        status: 'phase4',
+        current_phase: 4,
+        current_step: 'Phase 4: 실전 적용 시작',
+        progress_percent: 75,
+      });
+
+      emit({ type: 'phase_start', phase: 4, message: 'Phase 4: 실전 적용을 시작합니다', progress: 75 });
+
+      const phase3Content = phase3Result.tasks.map(t => t.content).join('\n\n');
+      const phase4Result = await executePhase(
+        context, 4, `${sourceSummary}\n\n모든 이전 분석 결과`,
+        (taskId) => runPhase4(topic, phase1Content, phase2Content, phase3Content, taskId, emit),
+        ['4.1', '4.2'],
+        75, 85,
+      );
+
+      allPhaseResults = [phase1Result, phase2Result, phase3Result, phase4Result];
+    }
 
     // Fact Checking
+    const factCheckProgress = isQuickMode ? 60 : 87;
     await updateResearch(researchId, {
       status: 'finalizing',
       current_step: '팩트체크 진행 중',
-      progress_percent: 87,
+      progress_percent: factCheckProgress,
     });
 
-    emit({ type: 'fact_check_start', message: '팩트체크를 시작합니다', progress: 87 });
+    emit({ type: 'fact_check_start', message: '팩트체크를 시작합니다', progress: factCheckProgress });
 
-    const allPhaseResults = [phase1Result, phase2Result, phase3Result, phase4Result];
     const factChecks = await runFactCheck(topic, allPhaseResults, emit);
 
     // Save fact checks to DB
@@ -214,12 +227,14 @@ export async function runPipeline(context: PipelineContext): Promise<void> {
       });
     }
 
-    emit({ type: 'fact_check_complete', message: `팩트체크 완료: ${factChecks.length}개 주장 검증`, progress: 92 });
+    const factCheckDoneProgress = isQuickMode ? 75 : 92;
+    emit({ type: 'fact_check_complete', message: `팩트체크 완료: ${factChecks.length}개 주장 검증`, progress: factCheckDoneProgress });
 
     // Report Generation
+    const reportProgress = isQuickMode ? 80 : 93;
     await updateResearch(researchId, {
       current_step: '최종 보고서 생성 중',
-      progress_percent: 93,
+      progress_percent: reportProgress,
     });
 
     const report = await generateReport(topic, allPhaseResults, factChecks);
@@ -266,6 +281,16 @@ export async function runPipeline(context: PipelineContext): Promise<void> {
   }
 }
 
+async function checkCancelled(researchId: string): Promise<boolean> {
+  const supabase = createServiceClient();
+  const { data } = await supabase
+    .from('research')
+    .select('status')
+    .eq('id', researchId)
+    .single();
+  return data?.status === 'failed';
+}
+
 async function executePhase(
   context: PipelineContext,
   phase: number,
@@ -275,6 +300,11 @@ async function executePhase(
   startProgress: number,
   endProgress: number,
 ): Promise<PhaseResult> {
+  // Check if research was cancelled before starting this phase
+  if (await checkCancelled(context.researchId)) {
+    throw new Error('사용자에 의해 취소됨');
+  }
+
   const tasks: PhaseResult['tasks'] = [];
   const progressStep = (endProgress - startProgress) / taskIds.length;
 

@@ -38,8 +38,8 @@ export function PipelineProgress({
       const start = new Date(result.started_at).getTime();
       const end = new Date(result.completed_at).getTime();
       const seconds = Math.round((end - start) / 1000);
-      if (seconds < 60) return `${seconds}s`;
-      return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+      if (seconds < 60) return `${seconds}초`;
+      return `${Math.floor(seconds / 60)}분 ${seconds % 60}초`;
     }
     return undefined;
   };

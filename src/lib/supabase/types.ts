@@ -196,6 +196,7 @@ export interface Database {
           full_report: string | null;
           pdf_storage_path: string | null;
           embedding: string | null;
+          share_token: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -206,12 +207,14 @@ export interface Database {
           full_report?: string | null;
           pdf_storage_path?: string | null;
           embedding?: string | null;
+          share_token?: string | null;
         };
         Update: {
           executive_summary?: string | null;
           full_report?: string | null;
           pdf_storage_path?: string | null;
           embedding?: string | null;
+          share_token?: string | null;
           updated_at?: string;
         };
       };

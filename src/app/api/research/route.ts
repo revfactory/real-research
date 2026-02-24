@@ -21,6 +21,7 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const { topic, description } = body;
+    const mode = body.mode === 'quick' ? 'quick' : 'full' as const;
 
     if (!topic || typeof topic !== 'string' || topic.length > 500) {
       return NextResponse.json(
@@ -63,6 +64,7 @@ export async function POST(request: Request) {
         status: 'pending',
         current_phase: 0,
         progress_percent: 0,
+        mode,
       })
       .select()
       .single();
@@ -76,8 +78,9 @@ export async function POST(request: Request) {
 
     const researchRecord = research as { id: string; status: string };
 
-    // Create initial phase result records (10 tasks total)
-    const taskRecords = PHASES.flatMap(phase =>
+    // Create initial phase result records (quick mode: Phase 1 only, full mode: all phases)
+    const phasesToCreate = mode === 'quick' ? PHASES.filter(p => p.phase === 1) : PHASES;
+    const taskRecords = phasesToCreate.flatMap(phase =>
       phase.tasks.map(task => ({
         research_id: researchRecord.id,
         phase: phase.phase as number,
@@ -90,7 +93,7 @@ export async function POST(request: Request) {
     await serviceClient.from('research_phase_result').insert(taskRecords);
 
     // Start pipeline asynchronously (don't await)
-    startPipelineAsync(researchRecord.id, topic.trim(), description?.trim() || undefined, user.id);
+    startPipelineAsync(researchRecord.id, topic.trim(), description?.trim() || undefined, user.id, mode);
 
     return NextResponse.json({
       id: researchRecord.id,
@@ -106,7 +109,7 @@ export async function POST(request: Request) {
 }
 
 // Start pipeline without blocking the response
-function startPipelineAsync(researchId: string, topic: string, description: string | undefined, userId: string) {
+function startPipelineAsync(researchId: string, topic: string, description: string | undefined, userId: string, mode: 'full' | 'quick') {
   // Import and run pipeline
   import('@/lib/pipeline/orchestrator').then(({ runPipeline }) => {
     const emit = (event: import('@/types').SSEEvent) => {
@@ -120,7 +123,7 @@ function startPipelineAsync(researchId: string, topic: string, description: stri
       }
     };
 
-    runPipeline({ researchId, topic, description, userId, emit }).catch(err => {
+    runPipeline({ researchId, topic, description, userId, mode, emit }).catch(err => {
       console.error(`Pipeline failed for ${researchId}:`, err);
     });
   });

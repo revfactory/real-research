@@ -83,6 +83,65 @@ export async function GET(
   }
 }
 
+const ACTIVE_STATUSES = ['collecting', 'phase1', 'phase2', 'phase3', 'phase4', 'finalizing'];
+
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const serviceClient = createServiceClient();
+
+    // Verify ownership and check current status
+    const { data: research } = await serviceClient
+      .from('research')
+      .select('id, user_id, status')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single();
+
+    if (!research) {
+      return NextResponse.json({ error: 'Research not found' }, { status: 404 });
+    }
+
+    if (!ACTIVE_STATUSES.includes(research.status)) {
+      return NextResponse.json(
+        { error: '진행 중인 리서치만 취소할 수 있습니다.' },
+        { status: 400 }
+      );
+    }
+
+    const { error: updateError } = await serviceClient
+      .from('research')
+      .update({
+        status: 'failed',
+        error_message: '사용자에 의해 취소됨',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id);
+
+    if (updateError) {
+      return NextResponse.json({ error: 'Failed to cancel research' }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Research cancel error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }

@@ -8,20 +8,38 @@ import {
   Loader2,
   CheckCircle2,
   CalendarDays,
+  ArrowUpDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Header } from '@/components/layout/header';
 import { ResearchList } from '@/components/research/research-list';
 import { EmptyState } from '@/components/shared/empty-state';
 import { CardGridSkeleton, StatCardSkeleton } from '@/components/shared/loading-skeleton';
 import { useResearchList } from '@/hooks/use-research-list';
+import type { StatusFilter, SortOrder } from '@/hooks/use-research-list';
 
 const statIcons = [BarChart3, Loader2, CheckCircle2, CalendarDays];
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { researches, loading, stats } = useResearchList();
+  const {
+    researches,
+    allResearches,
+    loading,
+    stats,
+    statusFilter,
+    setStatusFilter,
+    sortOrder,
+    setSortOrder,
+  } = useResearchList();
 
   const statCards = [
     { label: '전체 리서치', value: stats.total },
@@ -71,11 +89,47 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {/* Filter / Sort controls */}
+        {!loading && allResearches.length > 0 && (
+          <div className="flex items-center gap-3">
+            <Select
+              value={statusFilter}
+              onValueChange={(v) => setStatusFilter(v as StatusFilter)}
+            >
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="상태 필터" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">전체</SelectItem>
+                <SelectItem value="in_progress">진행 중</SelectItem>
+                <SelectItem value="completed">완료</SelectItem>
+                <SelectItem value="failed">실패</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setSortOrder(sortOrder === 'newest' ? 'oldest' : 'newest')}
+            >
+              <ArrowUpDown className="h-3.5 w-3.5" />
+              {sortOrder === 'newest' ? '최신순' : '오래된순'}
+            </Button>
+          </div>
+        )}
+
         {/* Research list */}
         {loading ? (
           <CardGridSkeleton />
         ) : researches.length > 0 ? (
           <ResearchList researches={researches} />
+        ) : allResearches.length > 0 ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground text-sm">
+              해당 필터에 맞는 리서치가 없습니다.
+            </p>
+          </div>
         ) : (
           <EmptyState
             icon={FileSearch}
