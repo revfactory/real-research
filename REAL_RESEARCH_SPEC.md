@@ -52,7 +52,7 @@ CRITICAL: 3사 웹 검색 도구의 정확한 API 명세를 준수해야 한다.
 
 <technology_stack>
   <frontend>
-    <framework>Next.js 15 (App Router) with TypeScript 5.7</framework>
+    <framework>Next.js 16 (App Router) with TypeScript 5.7</framework>
     <ui_library>React 19</ui_library>
     <styling>Tailwind CSS v4.0</styling>
     <component_library>shadcn/ui (latest) — Button, Card, Dialog, Input, Textarea, Select, Badge, Tabs, Tooltip, Progress, Skeleton, Sheet, DropdownMenu, Command, ScrollArea, Separator, Avatar, Sonner(toast)</component_library>
@@ -94,7 +94,7 @@ CRITICAL: 3사 웹 검색 도구의 정확한 API 명세를 준수해야 한다.
     - Google Gemini API 키 (AI Studio 발급)
   </environment_setup>
   <build_configuration>
-    - Next.js 15 App Router (app/ 디렉토리)
+    - Next.js 16 App Router (app/ 디렉토리)
     - TypeScript strict mode
     - Tailwind CSS v4 with @tailwindcss/postcss plugin
     - Path alias: @ → src/
