@@ -89,6 +89,13 @@ export function Sidebar() {
     loadData();
   }, [supabase, loadRecentResearches]);
 
+  // Refetch on route change (fallback when Realtime doesn't fire)
+  useEffect(() => {
+    if (userIdRef.current) {
+      loadRecentResearches(userIdRef.current);
+    }
+  }, [pathname, loadRecentResearches]);
+
   // Realtime: keep recent researches in sync
   useEffect(() => {
     const channel = supabase
@@ -202,10 +209,13 @@ export function Sidebar() {
             // Special styling for "New Research"
             if (item.href === '/research/new') {
               return (
-                <div key={item.href} className="px-3 pb-4 pt-2">
+                <div key={item.href} className={cn('pb-4 pt-2', sidebarCollapsed ? 'px-1.5' : 'px-3')}>
                   <Link
                     href={item.href}
-                    className="flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:text-white hover:-translate-y-0.5 transition-all shadow-md hover:shadow-purple-500/30"
+                    className={cn(
+                      'flex items-center justify-center rounded-xl text-sm font-bold bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:text-white hover:-translate-y-0.5 transition-all shadow-md hover:shadow-purple-500/30',
+                      sidebarCollapsed ? 'h-10 w-10 mx-auto p-0' : 'gap-2 px-4 py-3'
+                    )}
                   >
                     <item.icon className="h-4 w-4 shrink-0 text-white" />
                     {!sidebarCollapsed && <span className="text-white">{item.label}</span>}
@@ -219,7 +229,8 @@ export function Sidebar() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200',
+                  'flex items-center rounded-xl text-sm transition-all duration-200',
+                  sidebarCollapsed ? 'justify-center h-10 w-10 mx-auto p-0' : 'gap-3 px-3 py-2.5',
                   isActive
                     ? 'bg-gradient-to-r from-blue-600/10 to-purple-600/10 text-blue-600 dark:text-blue-400 font-bold shadow-sm'
                     : 'text-muted-foreground font-medium hover:bg-accent/50 hover:text-accent-foreground'
