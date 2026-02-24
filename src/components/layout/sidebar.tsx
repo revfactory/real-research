@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -12,6 +12,7 @@ import {
   FileText,
   ChevronLeft,
   ChevronRight,
+  Trash2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -26,8 +27,10 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { ThemeToggle } from './theme-toggle';
+import { ConfirmDialog } from '@/components/shared/confirm-dialog';
 import { useUIStore } from '@/stores/ui-store';
 import { createClient } from '@/lib/supabase/client';
+import { toast } from 'sonner';
 import type { Research, UserProfile } from '@/types';
 
 const navItems = [
@@ -42,7 +45,21 @@ export function Sidebar() {
   const { sidebarCollapsed, setSidebarCollapsed } = useUIStore();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [recentResearches, setRecentResearches] = useState<Research[]>([]);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; topic: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const supabase = createClient();
+
+  const loadRecentResearches = useCallback(async (userId: string) => {
+    const { data } = await supabase
+      .from('research')
+      .select('id, topic, status, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(5);
+    if (data) {
+      setRecentResearches(data as unknown as Research[]);
+    }
+  }, [supabase]);
 
   useEffect(() => {
     async function loadData() {
@@ -56,21 +73,31 @@ export function Sidebar() {
           created_at: authUser.created_at,
           updated_at: authUser.updated_at || authUser.created_at,
         });
-
-        const { data } = await supabase
-          .from('research')
-          .select('id, topic, status, created_at')
-          .eq('user_id', authUser.id)
-          .order('created_at', { ascending: false })
-          .limit(5);
-
-        if (data) {
-          setRecentResearches(data as unknown as Research[]);
-        }
+        loadRecentResearches(authUser.id);
       }
     }
     loadData();
-  }, [supabase]);
+  }, [supabase, loadRecentResearches]);
+
+  const handleDeleteResearch = async () => {
+    if (!deleteTarget || !user) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/research/${deleteTarget.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('삭제에 실패했습니다.');
+      toast.success('리서치가 삭제되었습니다.');
+      setRecentResearches((prev) => prev.filter((r) => r.id !== deleteTarget.id));
+      // If currently viewing the deleted research, redirect to dashboard
+      if (pathname.includes(deleteTarget.id)) {
+        router.push('/dashboard');
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '삭제에 실패했습니다.');
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
+    }
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -148,21 +175,32 @@ export function Sidebar() {
             </div>
             <nav className="space-y-0.5 px-2">
               {recentResearches.map((r) => (
-                <Link
+                <div
                   key={r.id}
-                  href={
-                    r.status === 'completed'
-                      ? `/research/${r.id}`
-                      : `/research/${r.id}/progress`
-                  }
-                  className={cn(
-                    'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors',
-                    'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                  )}
+                  className="group flex items-center rounded-md text-sm transition-colors text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 >
-                  <FileText className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{r.topic}</span>
-                </Link>
+                  <Link
+                    href={
+                      r.status === 'completed'
+                        ? `/research/${r.id}`
+                        : `/research/${r.id}/progress`
+                    }
+                    className="flex items-center gap-2 flex-1 min-w-0 px-3 py-1.5"
+                  >
+                    <FileText className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{r.topic}</span>
+                  </Link>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeleteTarget({ id: r.id, topic: r.topic });
+                    }}
+                    className="hidden group-hover:flex items-center justify-center h-6 w-6 mr-1 rounded hover:bg-destructive/10 hover:text-destructive transition-colors shrink-0"
+                    title="삭제"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
               ))}
             </nav>
           </>
@@ -206,6 +244,17 @@ export function Sidebar() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="리서치 삭제"
+        description={`"${deleteTarget?.topic || ''}" 리서치를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`}
+        confirmLabel="삭제"
+        variant="destructive"
+        onConfirm={handleDeleteResearch}
+        loading={deleting}
+      />
     </aside>
   );
 }
