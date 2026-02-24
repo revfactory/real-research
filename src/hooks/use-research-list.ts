@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Research } from '@/types';
 
@@ -15,6 +15,7 @@ export function useResearchList() {
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
+  const userIdRef = useRef<string | null>(null);
 
   const supabase = createClient();
 
@@ -27,6 +28,7 @@ export function useResearchList() {
         setError('인증이 필요합니다.');
         return;
       }
+      userIdRef.current = user.id;
 
       const { data, error: dbError } = await supabase
         .from('research')
@@ -46,6 +48,53 @@ export function useResearchList() {
   useEffect(() => {
     fetchResearches();
   }, [fetchResearches]);
+
+  // Realtime subscription for research table
+  useEffect(() => {
+    const channel = supabase
+      .channel('dashboard-research')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'research' },
+        (payload) => {
+          const newRow = payload.new as Research;
+          if (userIdRef.current && newRow.user_id === userIdRef.current) {
+            setResearches((prev) => [newRow, ...prev]);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'research' },
+        (payload) => {
+          const updated = payload.new as Research;
+          if (userIdRef.current && updated.user_id === userIdRef.current) {
+            setResearches((prev) =>
+              prev.map((r) => (r.id === updated.id ? updated : r))
+            );
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'research' },
+        (payload) => {
+          const deleted = payload.old as { id: string };
+          if (deleted.id) {
+            setResearches((prev) => prev.filter((r) => r.id !== deleted.id));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase]);
+
+  const removeResearch = useCallback((id: string) => {
+    setResearches((prev) => prev.filter((r) => r.id !== id));
+  }, []);
 
   const filteredResearches = useMemo(() => {
     let filtered = researches;
@@ -90,5 +139,6 @@ export function useResearchList() {
     sortOrder,
     setSortOrder,
     refetch: fetchResearches,
+    removeResearch,
   };
 }

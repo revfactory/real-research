@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import { Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -11,9 +12,10 @@ import type { Research, ResearchStatus } from '@/types';
 
 interface ResearchCardProps {
   research: Research;
+  onDelete?: (id: string, topic: string) => void;
 }
 
-export function ResearchCard({ research }: ResearchCardProps) {
+export function ResearchCard({ research, onDelete }: ResearchCardProps) {
   const config = STATUS_CONFIG[research.status];
   const isInProgress = [
     'collecting',
@@ -37,7 +39,22 @@ export function ResearchCard({ research }: ResearchCardProps) {
             <h3 className="text-base font-semibold leading-tight line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
               {research.topic}
             </h3>
-            <StatusBadge status={research.status} />
+            <div className="flex items-center gap-1 shrink-0">
+              {onDelete && (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onDelete(research.id, research.topic);
+                  }}
+                  className="hidden group-hover:flex items-center justify-center h-6 w-6 rounded hover:bg-destructive/10 hover:text-destructive text-muted-foreground transition-colors"
+                  title="삭제"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
+              <StatusBadge status={research.status} />
+            </div>
           </div>
 
           {isInProgress && (

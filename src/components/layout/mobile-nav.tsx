@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -41,10 +41,12 @@ export function MobileNav() {
   const [recentResearches, setRecentResearches] = useState<Research[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; topic: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const userIdRef = useRef<string | null>(null);
 
   const loadRecent = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
+    userIdRef.current = user.id;
     const { data } = await supabase
       .from('research')
       .select('id, topic, status, created_at')
@@ -52,12 +54,54 @@ export function MobileNav() {
       .order('created_at', { ascending: false })
       .limit(5);
     if (data) setRecentResearches(data as unknown as Research[]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supabase, pathname]);
+  }, [supabase]);
 
   useEffect(() => {
-    if (sidebarOpen) loadRecent();
-  }, [sidebarOpen, loadRecent]);
+    loadRecent();
+  }, [loadRecent]);
+
+  // Realtime: keep recent researches in sync
+  useEffect(() => {
+    const channel = supabase
+      .channel('mobile-nav-research')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'research' },
+        (payload) => {
+          const row = payload.new as Research;
+          if (userIdRef.current && row.user_id === userIdRef.current) {
+            setRecentResearches((prev) => [row, ...prev].slice(0, 5));
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'research' },
+        (payload) => {
+          const row = payload.new as Research;
+          if (userIdRef.current && row.user_id === userIdRef.current) {
+            setRecentResearches((prev) =>
+              prev.map((r) => (r.id === row.id ? { ...r, ...row } : r))
+            );
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'research' },
+        (payload) => {
+          const deleted = payload.old as { id: string };
+          if (deleted.id) {
+            setRecentResearches((prev) => prev.filter((r) => r.id !== deleted.id));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();

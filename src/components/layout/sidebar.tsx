@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -49,6 +49,8 @@ export function Sidebar() {
   const [deleting, setDeleting] = useState(false);
   const supabase = createClient();
 
+  const userIdRef = useRef<string | null>(null);
+
   const loadRecentResearches = useCallback(async (userId: string) => {
     const { data } = await supabase
       .from('research')
@@ -65,6 +67,7 @@ export function Sidebar() {
     async function loadData() {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (authUser) {
+        userIdRef.current = authUser.id;
         setUser({
           id: authUser.id,
           email: authUser.email || '',
@@ -77,8 +80,50 @@ export function Sidebar() {
       }
     }
     loadData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supabase, loadRecentResearches, pathname]);
+  }, [supabase, loadRecentResearches]);
+
+  // Realtime: keep recent researches in sync
+  useEffect(() => {
+    const channel = supabase
+      .channel('sidebar-research')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'research' },
+        (payload) => {
+          const row = payload.new as Research;
+          if (userIdRef.current && row.user_id === userIdRef.current) {
+            setRecentResearches((prev) => [row, ...prev].slice(0, 5));
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'research' },
+        (payload) => {
+          const row = payload.new as Research;
+          if (userIdRef.current && row.user_id === userIdRef.current) {
+            setRecentResearches((prev) =>
+              prev.map((r) => (r.id === row.id ? { ...r, ...row } : r))
+            );
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'research' },
+        (payload) => {
+          const deleted = payload.old as { id: string };
+          if (deleted.id) {
+            setRecentResearches((prev) => prev.filter((r) => r.id !== deleted.id));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase]);
 
   const handleDeleteResearch = async () => {
     if (!deleteTarget || !user) return;

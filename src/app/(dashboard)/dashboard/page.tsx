@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Plus,
@@ -23,7 +24,9 @@ import { Header } from '@/components/layout/header';
 import { ResearchList } from '@/components/research/research-list';
 import { EmptyState } from '@/components/shared/empty-state';
 import { CardGridSkeleton, StatCardSkeleton } from '@/components/shared/loading-skeleton';
+import { ConfirmDialog } from '@/components/shared/confirm-dialog';
 import { useResearchList } from '@/hooks/use-research-list';
+import { toast } from 'sonner';
 import type { StatusFilter, SortOrder } from '@/hooks/use-research-list';
 
 const statIcons = [BarChart3, Loader2, CheckCircle2, CalendarDays];
@@ -39,7 +42,27 @@ export default function DashboardPage() {
     setStatusFilter,
     sortOrder,
     setSortOrder,
+    removeResearch,
   } = useResearchList();
+
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; topic: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/research/${deleteTarget.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('삭제에 실패했습니다.');
+      toast.success('리서치가 삭제되었습니다.');
+      removeResearch(deleteTarget.id);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '삭제에 실패했습니다.');
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
+    }
+  };
 
   const statCards = [
     { label: '전체 리서치', value: stats.total },
@@ -123,7 +146,10 @@ export default function DashboardPage() {
         {loading ? (
           <CardGridSkeleton />
         ) : researches.length > 0 ? (
-          <ResearchList researches={researches} />
+          <ResearchList
+            researches={researches}
+            onDelete={(id, topic) => setDeleteTarget({ id, topic })}
+          />
         ) : allResearches.length > 0 ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground text-sm">
@@ -140,6 +166,17 @@ export default function DashboardPage() {
           />
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="리서치 삭제"
+        description={`"${deleteTarget?.topic || ''}" 리서치를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`}
+        confirmLabel="삭제"
+        variant="destructive"
+        onConfirm={handleDelete}
+        loading={deleting}
+      />
     </div>
   );
 }
