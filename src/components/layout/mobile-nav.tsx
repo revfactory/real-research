@@ -52,7 +52,8 @@ export function MobileNav() {
       .order('created_at', { ascending: false })
       .limit(5);
     if (data) setRecentResearches(data as unknown as Research[]);
-  }, [supabase]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabase, pathname]);
 
   useEffect(() => {
     if (sidebarOpen) loadRecent();

@@ -77,7 +77,8 @@ export function Sidebar() {
       }
     }
     loadData();
-  }, [supabase, loadRecentResearches]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabase, loadRecentResearches, pathname]);
 
   const handleDeleteResearch = async () => {
     if (!deleteTarget || !user) return;
