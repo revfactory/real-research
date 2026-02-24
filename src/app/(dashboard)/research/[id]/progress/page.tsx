@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowRight, RefreshCw, XCircle } from 'lucide-react';
+import { ArrowRight, RefreshCw, XCircle, Timer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -35,6 +35,42 @@ export default function ResearchProgressPage() {
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const prevStepRef = useRef<string | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+
+  // Elapsed time timer
+  const startTime = useMemo(() => {
+    if (research?.created_at) return new Date(research.created_at).getTime();
+    return null;
+  }, [research?.created_at]);
+
+  useEffect(() => {
+    if (!startTime) return;
+
+    // If already completed/failed, calculate final duration
+    if (isComplete || isFailed) {
+      const endTime = research?.completed_at
+        ? new Date(research.completed_at).getTime()
+        : Date.now();
+      setElapsed(Math.floor((endTime - startTime) / 1000));
+      return;
+    }
+
+    // Live timer
+    setElapsed(Math.floor((Date.now() - startTime) / 1000));
+    const interval = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startTime) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [startTime, isComplete, isFailed, research?.completed_at]);
+
+  const formatElapsed = (seconds: number): string => {
+    if (seconds < 60) return `${seconds}초`;
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    if (mins < 60) return `${mins}분 ${secs}초`;
+    const hrs = Math.floor(mins / 60);
+    return `${hrs}시간 ${mins % 60}분 ${secs}초`;
+  };
 
   // Sync initial data
   useEffect(() => {
@@ -45,8 +81,9 @@ export default function ResearchProgressPage() {
     if (initialPhaseResults.length > 0) setPhaseResults(initialPhaseResults);
   }, [initialPhaseResults]);
 
-  const addLog = useCallback((message: string) => {
-    const now = new Date().toLocaleTimeString('ko-KR', {
+  const addLog = useCallback((message: string, timestamp?: string) => {
+    const date = timestamp ? new Date(timestamp) : new Date();
+    const now = date.toLocaleTimeString('ko-KR', {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
@@ -80,7 +117,7 @@ export default function ResearchProgressPage() {
       // Add log from current_step changes
       if (updated.current_step && updated.current_step !== prevStepRef.current) {
         prevStepRef.current = updated.current_step;
-        addLog(updated.current_step);
+        addLog(updated.current_step, updated.updated_at);
       }
 
       // Check terminal states
@@ -106,15 +143,15 @@ export default function ResearchProgressPage() {
       return [...prev, updated as ResearchPhaseResult];
     });
 
-    // Log phase task status changes
+    // Log phase task status changes with DB timestamp
     if (updated.status === 'running' && updated.task_id) {
-      addLog(`Task ${updated.task_id} 시작`);
+      addLog(`Task ${updated.task_id} 시작`, updated.started_at ?? undefined);
     }
     if (updated.status === 'completed' && updated.task_id) {
-      addLog(`Task ${updated.task_id} 완료`);
+      addLog(`Task ${updated.task_id} 완료`, updated.completed_at ?? undefined);
     }
     if (updated.status === 'failed' && updated.task_id) {
-      addLog(`Task ${updated.task_id} 실패`);
+      addLog(`Task ${updated.task_id} 실패`, updated.completed_at ?? undefined);
     }
   }, [addLog]);
 
@@ -189,6 +226,12 @@ export default function ResearchProgressPage() {
             <span className="text-sm text-muted-foreground">
               {research.progress_percent}%
             </span>
+            {elapsed > 0 && (
+              <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                <Timer className="h-3.5 w-3.5" />
+                {formatElapsed(elapsed)}
+              </span>
+            )}
           </div>
           {research.current_step && isActive && (
             <p className="text-sm text-muted-foreground animate-pulse">
@@ -232,9 +275,16 @@ export default function ResearchProgressPage() {
         {isComplete && (
           <Card className="border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/20">
             <CardContent className="p-4 flex items-center justify-between">
-              <p className="text-sm font-medium text-green-700 dark:text-green-300">
-                리서치가 완료되었습니다
-              </p>
+              <div>
+                <p className="text-sm font-medium text-green-700 dark:text-green-300">
+                  리서치가 완료되었습니다
+                </p>
+                {elapsed > 0 && (
+                  <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">
+                    총 소요 시간: {formatElapsed(elapsed)}
+                  </p>
+                )}
+              </div>
               <Button
                 onClick={() => router.push(`/research/${researchId}`)}
                 className="gap-2"

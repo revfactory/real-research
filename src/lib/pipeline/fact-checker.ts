@@ -51,12 +51,17 @@ ${allContent.slice(0, 10000)}`,
 
   const factChecks: FactCheckItem[] = [];
 
+  emit({
+    type: 'fact_check_start',
+    message: `${claims.length}개 핵심 주장 추출 완료, 3사 교차 검증 시작`,
+  });
+
   // Step 2: Verify each claim with 3 providers in parallel
   for (let i = 0; i < claims.length; i++) {
     const claim = claims[i];
     emit({
       type: 'fact_check_start',
-      message: `주장 ${i + 1}/${claims.length} 검증 중: ${claim.slice(0, 50)}...`,
+      message: `주장 ${i + 1}/${claims.length} 검증 중: ${claim.slice(0, 60)}...`,
     });
 
     // Find which phase this claim most likely belongs to

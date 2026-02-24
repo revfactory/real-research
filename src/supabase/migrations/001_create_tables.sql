@@ -144,6 +144,9 @@ BEGIN
 END;
 $$;
 
+-- Mode column for quick/full research
+ALTER TABLE research ADD COLUMN IF NOT EXISTS mode TEXT NOT NULL DEFAULT 'full' CHECK (mode IN ('full', 'quick'));
+
 -- Share token for public sharing
 ALTER TABLE research_report ADD COLUMN IF NOT EXISTS share_token UUID UNIQUE;
 

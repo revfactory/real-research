@@ -42,7 +42,6 @@ export async function searchWithAnthropic(options: SearchOptions): Promise<Provi
       messages: [
         { role: 'user', content: userPrompt },
       ],
-      betas: ['code-execution-web-tools-2026-02-09'],
     });
 
     const msg = response as Anthropic.Message;

@@ -14,9 +14,11 @@ export async function multiSearch(options: MultiSearchOptions): Promise<MultiSea
   };
 
   // Execute searches in parallel
+  const startTime = Date.now();
   const promises = providers.map(provider => searchFns[provider]());
   const settled = await Promise.allSettled(promises);
 
+  const elapsed = Math.round((Date.now() - startTime) / 1000);
   const results: ProviderSearchResult[] = [];
 
   for (let i = 0; i < settled.length; i++) {

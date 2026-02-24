@@ -112,17 +112,21 @@ export default function ResearchDetailPage() {
     phaseResults.filter((r) => r.phase === phase)
   );
 
-  // Calculate duration
+  // Calculate duration from created_at to completed_at
   const duration =
-    research.started_at && research.completed_at
+    research.created_at && research.completed_at
       ? (() => {
           const seconds = Math.round(
             (new Date(research.completed_at).getTime() -
-              new Date(research.started_at).getTime()) /
+              new Date(research.created_at).getTime()) /
               1000
           );
           if (seconds < 60) return `${seconds}초`;
-          return `${Math.floor(seconds / 60)}분 ${seconds % 60}초`;
+          const mins = Math.floor(seconds / 60);
+          const secs = seconds % 60;
+          if (mins < 60) return `${mins}분 ${secs}초`;
+          const hrs = Math.floor(mins / 60);
+          return `${hrs}시간 ${mins % 60}분 ${secs}초`;
         })()
       : null;
 
