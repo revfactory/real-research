@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type {
   Research,
@@ -29,9 +29,10 @@ export function useResearchDetail(researchId: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const supabase = createClient();
+  const supabaseRef = useRef(createClient());
 
   const fetchDetail = useCallback(async () => {
+    const supabase = supabaseRef.current;
     setLoading(true);
     setError(null);
     try {
@@ -76,7 +77,7 @@ export function useResearchDetail(researchId: string) {
     } finally {
       setLoading(false);
     }
-  }, [supabase, researchId]);
+  }, [researchId]);
 
   useEffect(() => {
     if (researchId) {

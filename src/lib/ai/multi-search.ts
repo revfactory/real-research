@@ -180,7 +180,7 @@ async function executeSingleLanguageSearch(
         }
       } else {
         urlMap.set(normalizedUrl, {
-          source: { ...source, url: normalizedUrl },
+          source: { ...source, url: normalizedUrl, discoveredBy: result.provider },
           providers: new Set([result.provider]),
         });
       }
@@ -259,7 +259,7 @@ function mergeMultiSearchResponses(responses: MultiSearchResponse[]): MultiSearc
         }
       } else {
         urlMap.set(normalizedUrl, {
-          source: { ...source, url: normalizedUrl },
+          source: { ...source, url: normalizedUrl, discoveredBy: result.provider },
           providers: new Set([result.provider]),
         });
       }

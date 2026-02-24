@@ -55,6 +55,16 @@ export async function GET(
 
   const stream = new ReadableStream({
     start(controller) {
+      let heartbeat: ReturnType<typeof setInterval> | null = null;
+
+      const cleanup = () => {
+        if (heartbeat) {
+          clearInterval(heartbeat);
+          heartbeat = null;
+        }
+        removeEmitter(researchId, emitter);
+      };
+
       const emitter = (event: SSEEvent) => {
         try {
           const data = JSON.stringify(event);
@@ -62,6 +72,7 @@ export async function GET(
 
           // Close stream on completion or error
           if (event.type === 'pipeline_complete' || event.type === 'pipeline_error') {
+            cleanup();
             setTimeout(() => {
               try {
                 controller.close();
@@ -72,6 +83,7 @@ export async function GET(
           }
         } catch {
           // Stream may have been closed
+          cleanup();
         }
       };
 
@@ -87,7 +99,7 @@ export async function GET(
 
       // Cleanup on abort
       request.signal.addEventListener('abort', () => {
-        removeEmitter(researchId, emitter);
+        cleanup();
         try {
           controller.close();
         } catch {
@@ -96,19 +108,17 @@ export async function GET(
       });
 
       // Heartbeat to keep connection alive
-      const heartbeat = setInterval(() => {
+      heartbeat = setInterval(() => {
         try {
           controller.enqueue(encoder.encode(': heartbeat\n\n'));
         } catch {
-          clearInterval(heartbeat);
-          removeEmitter(researchId, emitter);
+          cleanup();
         }
       }, 15000);
 
       // Auto-cleanup after 30 minutes
       setTimeout(() => {
-        clearInterval(heartbeat);
-        removeEmitter(researchId, emitter);
+        cleanup();
         try {
           controller.close();
         } catch {

@@ -38,7 +38,7 @@ export function FactCheckTable({ factChecks }: FactCheckTableProps) {
       <div className="space-y-3">
         <h3 className="text-sm font-semibold">등급별 요약</h3>
         <div className="space-y-2">
-          {gradeOrder.reverse().map((grade) => {
+          {[...gradeOrder].reverse().map((grade) => {
             const count = gradeCounts[grade] || 0;
             const pct = total > 0 ? (count / total) * 100 : 0;
             const config = TRUST_GRADE_CONFIG[grade];

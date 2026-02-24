@@ -79,11 +79,13 @@ export async function POST(request: Request) {
 
     // 3) Also do text-based search to fill gaps
     const semanticIds = new Set(semanticResults.map(r => r.research_id));
+    // Sanitize query for PostgREST filter to prevent filter injection
+    const sanitizedQuery = query.replace(/[,.()"'\\%_]/g, '');
     const { data: textResults } = await supabase
       .from('research')
       .select('id, topic, created_at')
       .eq('user_id', user.id)
-      .or(`topic.ilike.%${query}%,description.ilike.%${query}%`)
+      .or(`topic.ilike.%${sanitizedQuery}%,description.ilike.%${sanitizedQuery}%`)
       .order('created_at', { ascending: false })
       .limit(10);
 

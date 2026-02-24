@@ -112,34 +112,30 @@ export async function runPipeline(context: PipelineContext): Promise<void> {
 
     const searchStart = Date.now();
     let searchResult;
-    try {
-      searchResult = await multiSearchBatch(
-        decomposition.subQueries,
-        {
-          mode: 'search',
-          language: 'both',
-          concurrency: 2,
-          onProgress: (progress) => {
-            const secs = Math.round((Date.now() - searchStart) / 1000);
-            const done = progress.queryIndex + 1;
-            const pct = Math.round(6 + (done / progress.totalQueries) * 7); // 6% → 13%
-            const providerInfo = progress.succeededProviders.length > 0
-              ? `성공: ${progress.succeededProviders.join(', ')}`
-              : '검색 중';
-            const failInfo = progress.failedProviders.length > 0
-              ? ` | 실패: ${progress.failedProviders.join(', ')}`
-              : '';
+    searchResult = await multiSearchBatch(
+      decomposition.subQueries,
+      {
+        mode: 'search',
+        language: 'both',
+        concurrency: 2,
+        onProgress: (progress) => {
+          const secs = Math.round((Date.now() - searchStart) / 1000);
+          const done = progress.queryIndex + 1;
+          const pct = Math.round(6 + (done / progress.totalQueries) * 7); // 6% → 13%
+          const providerInfo = progress.succeededProviders.length > 0
+            ? `성공: ${progress.succeededProviders.join(', ')}`
+            : '검색 중';
+          const failInfo = progress.failedProviders.length > 0
+            ? ` | 실패: ${progress.failedProviders.join(', ')}`
+            : '';
 
-            updateResearch(researchId, {
-              current_step: `[${done}/${progress.totalQueries}] "${progress.query.slice(0, 40)}${progress.query.length > 40 ? '...' : ''}" → ${progress.sourcesFound}개 소스 (${providerInfo}${failInfo}) — ${secs}초`,
-              progress_percent: pct,
-            }).catch(() => {});
-          },
+          updateResearch(researchId, {
+            current_step: `[${done}/${progress.totalQueries}] "${progress.query.slice(0, 40)}${progress.query.length > 40 ? '...' : ''}" → ${progress.sourcesFound}개 소스 (${providerInfo}${failInfo}) — ${secs}초`,
+            progress_percent: pct,
+          }).catch(err => console.error('[Pipeline] Progress update failed:', err));
         },
-      );
-    } catch (error) {
-      throw error;
-    }
+      },
+    );
 
     const searchSecs = Math.round((Date.now() - searchStart) / 1000);
 
@@ -198,7 +194,7 @@ export async function runPipeline(context: PipelineContext): Promise<void> {
       const isCrossValidated = crossValidatedSet.has(source.url);
       await supabase.from('research_source').insert({
         research_id: researchId,
-        provider: 'openai', // Provider is aggregated; store first match
+        provider: source.discoveredBy || 'openai',
         title: source.title,
         url: source.url,
         snippet: source.snippet || null,
@@ -317,7 +313,7 @@ export async function runPipeline(context: PipelineContext): Promise<void> {
         openai_result: fc.openaiResult || null,
         anthropic_result: fc.anthropicResult || null,
         gemini_result: fc.geminiResult || null,
-        confidence_score: fc.confidenceScore || null,
+        confidence_score: fc.confidenceScore ?? null,
         notes: fc.notes || null,
       });
     }

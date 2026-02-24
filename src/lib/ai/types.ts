@@ -40,6 +40,8 @@ export interface SourceInfo {
   confidenceScore?: number;
   reliabilityScore?: number;
   discoveryLanguage?: 'ko' | 'en';
+  /** The first provider that discovered this source */
+  discoveredBy?: Provider;
 }
 
 export interface MultiSearchOptions extends SearchOptions {

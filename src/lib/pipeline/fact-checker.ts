@@ -177,13 +177,12 @@ function determineGrade(
       confirmCount++;
     } else if (hasContradiction) {
       contradictCount++;
-    } else {
-      confirmCount++;
     }
+    // Ambiguous text (neither confirmation nor contradiction keywords) is not counted
   }
 
-  if (contradictCount > 0 && confirmCount > 0) return 'D';
   if (contradictCount >= 2) return 'F';
+  if (contradictCount > 0 && confirmCount > 0) return 'D';
 
   if (confirmCount >= 3) return 'A';
   if (confirmCount >= 2) return 'B';

@@ -19,9 +19,9 @@ export async function searchWithAnthropic(options: SearchOptions): Promise<Provi
 
     const effectiveMaxResults = maxResults ?? getDefaultMaxResults(mode);
 
-    // Build tools with proper SDK types
-    const webSearchTool: Anthropic.Messages.WebSearchTool20250305 = {
-      type: 'web_search_20250305',
+    // Build tools with proper SDK types (use latest 20260209 version)
+    const webSearchTool: Anthropic.Messages.WebSearchTool20260209 = {
+      type: 'web_search_20260209',
       name: 'web_search',
       max_uses: effectiveMaxResults,
     };
@@ -33,8 +33,8 @@ export async function searchWithAnthropic(options: SearchOptions): Promise<Provi
 
     // Add web_fetch tool for deeper analysis
     if (mode === 'deep') {
-      const webFetchTool: Anthropic.Messages.WebFetchTool20250910 = {
-        type: 'web_fetch_20250910',
+      const webFetchTool: Anthropic.Messages.WebFetchTool20260209 = {
+        type: 'web_fetch_20260209',
         name: 'web_fetch',
         max_uses: 3,
       };

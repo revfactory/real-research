@@ -101,9 +101,7 @@ export async function searchWithGemini(options: SearchOptions): Promise<Provider
 
     // Extract usage
     let usage: TokenUsage | undefined;
-    const rawUsage = (response as unknown as {
-      usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
-    }).usageMetadata;
+    const rawUsage = response.usageMetadata;
     if (rawUsage) {
       usage = {
         inputTokens: rawUsage.promptTokenCount ?? 0,

@@ -17,9 +17,10 @@ export function useResearchList() {
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const userIdRef = useRef<string | null>(null);
 
-  const supabase = createClient();
+  const supabaseRef = useRef(createClient());
 
   const fetchResearches = useCallback(async () => {
+    const supabase = supabaseRef.current;
     setLoading(true);
     setError(null);
     try {
@@ -43,7 +44,7 @@ export function useResearchList() {
     } finally {
       setLoading(false);
     }
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     fetchResearches();
@@ -51,6 +52,7 @@ export function useResearchList() {
 
   // Realtime subscription for research table
   useEffect(() => {
+    const supabase = supabaseRef.current;
     const channel = supabase
       .channel('dashboard-research')
       .on(
@@ -90,7 +92,7 @@ export function useResearchList() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [supabase]);
+  }, []);
 
   const removeResearch = useCallback((id: string) => {
     setResearches((prev) => prev.filter((r) => r.id !== id));

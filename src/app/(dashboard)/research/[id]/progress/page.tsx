@@ -157,7 +157,7 @@ export default function ResearchProgressPage() {
 
   const isActive =
     research &&
-    ['collecting', 'phase1', 'phase2', 'phase3', 'phase4', 'finalizing'].includes(
+    ['pending', 'collecting', 'phase1', 'phase2', 'phase3', 'phase4', 'finalizing'].includes(
       research.status
     );
 

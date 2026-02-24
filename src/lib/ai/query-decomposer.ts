@@ -75,16 +75,18 @@ export async function decomposeQuery(
  * Simple fallback decomposition when API fails
  */
 function fallbackDecomposition(topic: string, mode: 'quick' | 'full'): QueryDecomposition {
+  const currentYear = new Date().getFullYear();
+  const yearRange = `${currentYear - 1} ${currentYear}`;
   const subQueries = mode === 'quick'
     ? [
         `${topic} 개요 정의`,
-        `${topic} 최신 동향 2024 2025`,
+        `${topic} 최신 동향 ${yearRange}`,
         `${topic} 전망 분석`,
       ]
     : [
         `${topic} 정의 개념 설명`,
         `${topic} 주요 기업 플레이어`,
-        `${topic} 최신 동향 뉴스 2024 2025`,
+        `${topic} 최신 동향 뉴스 ${yearRange}`,
         `${topic} 문제점 비판 리스크`,
         `${topic} 미래 전망 예측`,
       ];
