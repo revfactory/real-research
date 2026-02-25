@@ -74,7 +74,7 @@ export function FollowupQuestions({ researchId, isCompleted }: FollowupQuestions
               variant="outline"
               size="sm"
               className="gap-2"
-              onClick={generateQuestions}
+              onClick={() => generateQuestions().catch(err => toast.error(err instanceof Error ? err.message : '질문 생성에 실패했습니다.'))}
               disabled={generating || loading}
             >
               {generating ? (

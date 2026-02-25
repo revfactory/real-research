@@ -34,6 +34,9 @@ export function useFollowupQuestions(researchId: string) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || '질문 생성에 실패했습니다.');
       }
+    } catch (err) {
+      console.error('Failed to generate followup questions:', err);
+      throw err;
     } finally {
       setGenerating(false);
     }
