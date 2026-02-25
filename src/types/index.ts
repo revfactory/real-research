@@ -40,6 +40,7 @@ export interface Research {
   current_step: string | null;
   progress_percent: number;
   error_message: string | null;
+  parent_id: string | null;
   started_at: string | null;
   completed_at: string | null;
   created_at: string;
@@ -96,7 +97,43 @@ export interface ResearchReport {
   executive_summary: string | null;
   full_report: string | null;
   pdf_storage_path: string | null;
+  audio_storage_path: string | null;
   share_token: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FollowupQuestion {
+  id: string;
+  research_id: string;
+  question: string;
+  source_phase: number;
+  source_task_id: string | null;
+  created_at: string;
+}
+
+export interface ResearchChat {
+  id: string;
+  research_id: string;
+  user_id: string;
+  created_at: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  chat_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  created_at: string;
+}
+
+export interface ResearchComparison {
+  id: string;
+  user_id: string;
+  research_ids: string[];
+  title: string;
+  analysis: string | null;
+  status: 'pending' | 'generating' | 'completed' | 'failed';
   created_at: string;
   updated_at: string;
 }

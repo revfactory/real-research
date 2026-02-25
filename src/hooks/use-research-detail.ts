@@ -57,7 +57,7 @@ export function useResearchDetail(researchId: string) {
             .order('phase', { ascending: true }),
           supabase
             .from('research_report')
-            .select('id, research_id, executive_summary, full_report, pdf_storage_path, created_at, updated_at')
+            .select('*')
             .eq('research_id', researchId)
             .maybeSingle(),
         ]);

@@ -13,6 +13,7 @@ import {
   Trash2,
   Loader2,
   Share2,
+  MessageSquare,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +25,10 @@ import { PhaseResult } from '@/components/research/phase-result';
 import { FactCheckTable } from '@/components/research/fact-check-table';
 import { ConfirmDialog } from '@/components/shared/confirm-dialog';
 import { ReportSkeleton } from '@/components/shared/loading-skeleton';
+import { FollowupQuestions } from '@/components/research/followup-questions';
+import { ResearchLineage } from '@/components/research/research-lineage';
+import { VoiceBriefing } from '@/components/research/voice-briefing';
+import { ReportChat } from '@/components/research/report-chat';
 import { useResearchDetail } from '@/hooks/use-research-detail';
 import { STATUS_CONFIG } from '@/lib/constants';
 import type { ResearchStatus } from '@/types';
@@ -227,9 +232,21 @@ export default function ResearchDetailPage() {
                 </Badge>
               )}
             </TabsTrigger>
+            {research.status === 'completed' && report && (
+              <TabsTrigger value="chat" className="gap-1.5">
+                <MessageSquare className="h-4 w-4" />
+                AI 질문
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="report">
+            {research.status === 'completed' && report && (
+              <VoiceBriefing
+                researchId={researchId}
+                hasReport={!!report?.executive_summary}
+              />
+            )}
             <ReportViewer
               executiveSummary={report?.executive_summary || null}
               fullReport={report?.full_report || null}
@@ -268,7 +285,25 @@ export default function ResearchDetailPage() {
               </p>
             )}
           </TabsContent>
+
+          {research.status === 'completed' && report && (
+            <TabsContent value="chat">
+              <ReportChat researchId={researchId} />
+            </TabsContent>
+          )}
         </Tabs>
+
+        {/* Research Lineage */}
+        <ResearchLineage
+          researchId={researchId}
+          parentId={research.parent_id}
+        />
+
+        {/* Follow-up Questions */}
+        <FollowupQuestions
+          researchId={researchId}
+          isCompleted={research.status === 'completed'}
+        />
       </div>
 
       <ConfirmDialog

@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { topic, description } = body;
+    const { topic, description, parent_id } = body;
     const mode = body.mode === 'quick' ? 'quick' : 'full' as const;
 
     if (!topic || typeof topic !== 'string' || topic.length > 500) {
@@ -65,6 +65,7 @@ export async function POST(request: Request) {
         current_phase: 0,
         progress_percent: 0,
         mode,
+        parent_id: parent_id || null,
       })
       .select()
       .single();

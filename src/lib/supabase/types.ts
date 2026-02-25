@@ -45,6 +45,7 @@ export interface Database {
           current_step: string | null;
           progress_percent: number;
           error_message: string | null;
+          parent_id: string | null;
           started_at: string | null;
           completed_at: string | null;
           created_at: string;
@@ -60,6 +61,7 @@ export interface Database {
           current_step?: string | null;
           progress_percent?: number;
           error_message?: string | null;
+          parent_id?: string | null;
           started_at?: string | null;
           completed_at?: string | null;
         };
@@ -71,6 +73,7 @@ export interface Database {
           current_step?: string | null;
           progress_percent?: number;
           error_message?: string | null;
+          parent_id?: string | null;
           started_at?: string | null;
           completed_at?: string | null;
           updated_at?: string;
@@ -195,6 +198,7 @@ export interface Database {
           executive_summary: string | null;
           full_report: string | null;
           pdf_storage_path: string | null;
+          audio_storage_path: string | null;
           embedding: string | null;
           share_token: string | null;
           created_at: string;
@@ -206,6 +210,7 @@ export interface Database {
           executive_summary?: string | null;
           full_report?: string | null;
           pdf_storage_path?: string | null;
+          audio_storage_path?: string | null;
           embedding?: string | null;
           share_token?: string | null;
         };
@@ -213,8 +218,89 @@ export interface Database {
           executive_summary?: string | null;
           full_report?: string | null;
           pdf_storage_path?: string | null;
+          audio_storage_path?: string | null;
           embedding?: string | null;
           share_token?: string | null;
+          updated_at?: string;
+        };
+      };
+      research_followup_question: {
+        Row: {
+          id: string;
+          research_id: string;
+          question: string;
+          source_phase: number;
+          source_task_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          research_id: string;
+          question: string;
+          source_phase?: number;
+          source_task_id?: string | null;
+        };
+        Update: {
+          question?: string;
+          source_phase?: number;
+          source_task_id?: string | null;
+        };
+      };
+      research_chat: {
+        Row: {
+          id: string;
+          research_id: string;
+          user_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          research_id: string;
+          user_id: string;
+        };
+        Update: Record<string, never>;
+      };
+      research_chat_message: {
+        Row: {
+          id: string;
+          chat_id: string;
+          role: string;
+          content: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          chat_id: string;
+          role: string;
+          content: string;
+        };
+        Update: {
+          content?: string;
+        };
+      };
+      research_comparison: {
+        Row: {
+          id: string;
+          user_id: string;
+          research_ids: string[];
+          title: string;
+          analysis: string | null;
+          status: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          research_ids: string[];
+          title: string;
+          analysis?: string | null;
+          status?: string;
+        };
+        Update: {
+          title?: string;
+          analysis?: string | null;
+          status?: string;
           updated_at?: string;
         };
       };
